@@ -16,11 +16,11 @@ class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
     self._normalize = normalize
     self._peephole = peephole
     if data_format == 'channels_last':
-        self._size = tf.TensorShape(shape + [self._filters])
+        self._size = tf.TensorShape((shape[0],shape[1],self._filters))
         self._feature_axis = self._size.ndims
         self._data_format = None
     elif data_format == 'channels_first':
-        self._size = tf.TensorShape([self._filters] + shape)
+        self._size = tf.TensorShape((self._filters, shape[0],shape[1]))
         self._feature_axis = 0
         self._data_format = 'NC'
     else:
@@ -40,7 +40,7 @@ class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
     x = tf.concat([x, h], axis=self._feature_axis)
     n = x.shape[-1].value
     m = 4 * self._filters if self._filters > 1 else 4
-    W = tf.get_variable('kernel', self._kernel + [n, m])
+    W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
     y = tf.nn.convolution(x, W, 'SAME', data_format=self._data_format)
     if not self._normalize:
       y += tf.get_variable('bias', [m], initializer=tf.zeros_initializer())
@@ -90,11 +90,11 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
     self._activation = activation
     self._normalize = normalize
     if data_format == 'channels_last':
-        self._size = tf.TensorShape(shape + [self._filters])
+        self._size = tf.TensorShape((shape[0], shape[1], self._filters))
         self._feature_axis = self._size.ndims
         self._data_format = None
     elif data_format == 'channels_first':
-        self._size = tf.TensorShape([self._filters] + shape)
+        self._size = tf.TensorShape((self._filters, shape[0], shape[1]))
         self._feature_axis = 0
         self._data_format = 'NC'
     else:
@@ -115,7 +115,7 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
       inputs = tf.concat([x, h], axis=self._feature_axis)
       n = channels + self._filters
       m = 2 * self._filters if self._filters > 1 else 2
-      W = tf.get_variable('kernel', self._kernel + [n, m])
+      W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
       y = tf.nn.convolution(inputs, W, 'SAME', data_format=self._data_format)
       if self._normalize:
         r, u = tf.split(y, 2, axis=self._feature_axis)
@@ -134,7 +134,7 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
       inputs = tf.concat([x, r * h], axis=self._feature_axis)
       n = channels + self._filters
       m = self._filters
-      W = tf.get_variable('kernel', self._kernel + [n, m])
+      W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
       y = tf.nn.convolution(inputs, W, 'SAME', data_format=self._data_format)
       if self._normalize:
         y = tf.contrib.layers.layer_norm(y)
