@@ -41,7 +41,7 @@ class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
     n = x.shape[-1].value
     m = 4 * self._filters if self._filters > 1 else 4
     W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
-    y = tf.nn.convolution(x, W, 'SAME', data_format=self._data_format)
+    y = convolution(x, W, data_format=self._data_format)
     if not self._normalize:
       y += tf.get_variable('bias', [m], initializer=tf.zeros_initializer())
     j, i, f, o = tf.split(y, 4, axis=self._feature_axis)
@@ -69,6 +69,10 @@ class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
     o = tf.sigmoid(o)
     h = o * self._activation(c)
 
+    #time_op = tf.get_default_graph().get_operation_by_name("convrnn/bidirectional_rnn/fw/fw/time").outputs[0]
+    #tf.add_to_collection("convrnn_hidden"+tf.cast(time_op,tf.string), h)
+
+    #tf.add_to_collection("convrnn_hidden", h)
     # TODO 
     #tf.summary.histogram('forget_gate', f)
     #tf.summary.histogram('input_gate', i)
@@ -116,7 +120,7 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
       n = channels + self._filters
       m = 2 * self._filters if self._filters > 1 else 2
       W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
-      y = tf.nn.convolution(inputs, W, 'SAME', data_format=self._data_format)
+      y = convolution(inputs, W, data_format=self._data_format)
       if self._normalize:
         r, u = tf.split(y, 2, axis=self._feature_axis)
         r = tf.contrib.layers.layer_norm(r)
@@ -135,7 +139,7 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
       n = channels + self._filters
       m = self._filters
       W = tf.get_variable('kernel', tf.TensorShape((self._kernel[0],self._kernel[1],n,m)))
-      y = tf.nn.convolution(inputs, W, 'SAME', data_format=self._data_format)
+      y = convolution(inputs, W, data_format=self._data_format)
       if self._normalize:
         y = tf.contrib.layers.layer_norm(y)
       else:
@@ -143,3 +147,31 @@ class ConvGRUCell(tf.nn.rnn_cell.RNNCell):
       h = u * h + (1 - u) * self._activation(y)
 
     return h, h
+
+def convolution(inputs,W,data_format):
+    """wrapper around tf.nn.convolution with custom padding"""
+    pad_h = int(W.get_shape()[0])/2
+    pad_w = int(W.get_shape()[1])/2
+
+    paddings = tf.constant([[0, 0], [pad_h,pad_h], [pad_w,pad_w], [0, 0]])
+
+    inputs_padded = tf.pad(inputs, paddings, "REFLECT")
+
+    return tf.nn.convolution(inputs_padded, W, 'VALID', data_format=data_format)
+
+def pad(input,kernel,dilation=(1,1),padding="REFLECT"):
+    """https://www.tensorflow.org/api_docs/python/tf/pad"""
+
+    # determine required padding sizes
+    def padsize(kernel, dilation):
+        p = []
+        for k, d in zip(kernel, dilation):
+            p.append(int(k / 2) * d)
+        return p
+
+    padsizes = padsize(kernel, dilation)
+
+    # [bleft,bright], [tleft,tright], [hleft,hright], [wleft,wright],[dleft,dright]
+    paddings = tf.constant([[0, 0]] + [[p, p] for p in padsizes] + [[0, 0]])
+
+    return tf.pad(input, paddings, padding)
