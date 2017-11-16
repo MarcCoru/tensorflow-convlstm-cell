@@ -69,10 +69,6 @@ class ConvLSTMCell(tf.nn.rnn_cell.RNNCell):
     o = tf.sigmoid(o)
     h = o * self._activation(c)
 
-    #time_op = tf.get_default_graph().get_operation_by_name("convrnn/bidirectional_rnn/fw/fw/time").outputs[0]
-    #tf.add_to_collection("convrnn_hidden"+tf.cast(time_op,tf.string), h)
-
-    #tf.add_to_collection("convrnn_hidden", h)
     # TODO 
     #tf.summary.histogram('forget_gate', f)
     #tf.summary.histogram('input_gate', i)
@@ -158,20 +154,3 @@ def convolution(inputs,W,data_format):
     inputs_padded = tf.pad(inputs, paddings, "REFLECT")
 
     return tf.nn.convolution(inputs_padded, W, 'VALID', data_format=data_format)
-
-def pad(input,kernel,dilation=(1,1),padding="REFLECT"):
-    """https://www.tensorflow.org/api_docs/python/tf/pad"""
-
-    # determine required padding sizes
-    def padsize(kernel, dilation):
-        p = []
-        for k, d in zip(kernel, dilation):
-            p.append(int(k / 2) * d)
-        return p
-
-    padsizes = padsize(kernel, dilation)
-
-    # [bleft,bright], [tleft,tright], [hleft,hright], [wleft,wright],[dleft,dright]
-    paddings = tf.constant([[0, 0]] + [[p, p] for p in padsizes] + [[0, 0]])
-
-    return tf.pad(input, paddings, padding)
